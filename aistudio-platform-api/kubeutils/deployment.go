@@ -180,6 +180,21 @@ func (kc *KubernetesConfig) ModelDeploymentExists(namespace string, deploymentNa
 	return true
 }
 
+func (kc *KubernetesConfig) DeploymentExists(namespace string, deploymentName string) bool {
+	deploymentsClient := kc.Clientset.AppsV1().Deployments(namespace)
+
+	_, err := deploymentsClient.Get(context.TODO(), deploymentName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false
+		}
+		log.Errorf("Failed to get deployment %s in namespace %s: %v", deploymentName, namespace, err)
+		return false
+	}
+
+	return true
+}
+
 func (kc *KubernetesConfig) GetDeploymentLogs(deploymentName string, namespace string) (string, error) {
 	pods, err := kc.Clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "app=" + deploymentName,
