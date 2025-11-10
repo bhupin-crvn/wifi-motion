@@ -23,7 +23,7 @@ type PluginDeploymentsRequests struct {
 
 type DeletePluginRequest struct {
 	PluginName string `json:"pluginName"`
-	RoutePath     string `json:"routePath"`
+	RoutePath  string `json:"routePath"`
 }
 
 var kc = utils.NewKubernetesConfig()
@@ -32,4 +32,6 @@ type PluginDeploymentsRequest struct {
 	ZipURL     string `json:"zipUrl"`
 	RoutePath  string `json:"routePath"`  // e.g. "my-plugin"
 	PluginName string `json:"pluginName"` // e.g. "my-plugin"
+	EngineKey  string `json:"engineKey"`
+	ReleaseId  int    `json:"releaseId"`
 }

@@ -31,8 +31,18 @@ func CreatePlugin(c *fiber.Ctx) error {
 	errorChan := make(chan error)
 
 	go func() {
-		url, err := CreatePluginDeployments(req)
-		resultChan <- url
+		var (
+			result string
+			err    error
+		)
+
+		if req.EngineKey != "" && req.ReleaseId != 0 {
+			result, err = InstallPlugin(req)
+		} else {
+			result, err = CreatePluginDeployments(req)
+		}
+
+		resultChan <- result
 		errorChan <- err
 	}()
 
