@@ -82,6 +82,49 @@ func DeletePlugin(c *fiber.Ctx) error {
 	return helper.SendResponse(c, "Deployments deleted successfully", nil, fiber.StatusOK)
 }
 
+// @Description	Install Plugin from release
+// @Summary		Install Plugin
+// @Tags		Plugins
+// @Accept		json
+// @Produce		json
+// @Param 		installPluginRequest body InstallPluginRequest true "Install Plugin Body"
+// @Router		/api/plugin/install [post]
+func InstallPluginHandler(c *fiber.Ctx) error {
+	var req InstallPluginRequest
+	if err := c.BodyParser(&req); err != nil {
+		return helper.SendResponse(c, "Invalid Request", nil, fiber.ErrBadRequest.Code)
+	}
+
+	// Validate request
+	if req.EngineKey == "" {
+		return helper.SendResponse(c, "engineKey is required", nil, fiber.StatusBadRequest)
+	}
+	if req.ReleaseId == 0 {
+		return helper.SendResponse(c, "releaseId is required", nil, fiber.StatusBadRequest)
+	}
+
+	// Install plugin in background
+	resultChan := make(chan string)
+	errorChan := make(chan error)
+
+	go func() {
+		message, err := InstallPlugin(req)
+		resultChan <- message
+		errorChan <- err
+	}()
+
+	message := <-resultChan
+	err := <-errorChan
+
+	if err != nil {
+		log.Error("Failed to install plugin: ", err)
+		return helper.SendResponse(c, fmt.Sprintf("Failed to install plugin: %v", err), nil, fiber.StatusInternalServerError)
+	}
+
+	log.Info("Plugin installed successfully: ", message)
+	return helper.SendResponse(c, message, nil, fiber.StatusOK)
+}
+
 func GetPluginsSse(c *fiber.Ctx) error {
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")

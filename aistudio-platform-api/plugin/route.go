@@ -7,6 +7,7 @@ import (
 func SetupRoutes(router fiber.Router) {
 	plugin := router.Group("/plugin")
 	plugin.Get("/sse", GetPluginsSse)
-	plugin.Post("/",CreatePlugin)
+	plugin.Post("/", CreatePlugin)
+	plugin.Post("/install", InstallPluginHandler)
 	plugin.Delete("/", DeletePlugin)
 }

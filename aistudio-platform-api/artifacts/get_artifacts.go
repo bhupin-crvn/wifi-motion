@@ -135,9 +135,24 @@ func GetArtifacts(path string, ignore_path string) (map[string]interface{}, erro
 	return dirDict, nil
 }
 
-func CopyAllArtifacts(src string, dst string) (string, error) {
+func CopyAllArtifacts(src string, dst string, skipIgnoreFile ...bool) (string, error) {
 	fs := afero.NewOsFs()
-	ignoreItems := getIgnoreItem(src + "/.studioignore")
+	
+	var ignoreItems map[string]bool
+	// Check if we should skip reading the ignore file
+	shouldSkipIgnore := len(skipIgnoreFile) > 0 && skipIgnoreFile[0]
+	
+	if !shouldSkipIgnore {
+		ignoreFilePath := src + "/.studioignore"
+		if _, err := os.Stat(ignoreFilePath); err == nil {
+			ignoreItems = getIgnoreItem(ignoreFilePath)
+		} else {
+			ignoreItems = make(map[string]bool)
+		}
+	} else {
+		ignoreItems = make(map[string]bool)
+	}
+	
 	err := afero.Walk(fs, src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err

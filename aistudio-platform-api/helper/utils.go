@@ -121,3 +121,9 @@ func DownloadFile(url, filepath string) error {
 	_, err = io.Copy(out, resp.Body)
 	return err
 }
+
+// DownloadFileWithReleaseId: Download file from URL with releaseId
+func DownloadFileWithReleaseId(releaseId int, baseURL string, filepath string) error {
+	url := fmt.Sprintf("%s?releaseId=%d", baseURL, releaseId)
+	return DownloadFile(url, filepath)
+}

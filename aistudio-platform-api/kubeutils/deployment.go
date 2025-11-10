@@ -151,6 +151,68 @@ func (kc *KubernetesConfig) ConfigDeployment(newNamespace, deploymentName, image
     return deploymentNameResult, nil
 }
 
+// ConfigDeploymentWithInitContainers creates a deployment with init containers support
+func (kc *KubernetesConfig) ConfigDeploymentWithInitContainers(newNamespace, deploymentName, image string, port int, nodeSelector string, envVars []apiv1.EnvVar, initContainers []apiv1.Container, volumes []apiv1.Volume, volumeMounts []apiv1.VolumeMount) (string, error) {
+    deploymentsClient := kc.Clientset.AppsV1().Deployments(newNamespace)
+
+    container := apiv1.Container{
+        Name:  deploymentName,
+        Image: image,
+        Ports: []apiv1.ContainerPort{
+            {
+                ContainerPort: int32(port),
+            },
+        },
+        Env:          envVars,
+        VolumeMounts: volumeMounts,
+    }
+
+    deployment := &appsv1.Deployment{
+        ObjectMeta: metav1.ObjectMeta{
+            Name:      deploymentName,
+            Namespace: newNamespace,
+            Labels: map[string]string{
+                "app": deploymentName,
+            },
+        },
+        Spec: appsv1.DeploymentSpec{
+            Replicas: int32Ptr(1),
+            Selector: &metav1.LabelSelector{
+                MatchLabels: map[string]string{
+                    "app": deploymentName,
+                },
+            },
+            Template: apiv1.PodTemplateSpec{
+                ObjectMeta: metav1.ObjectMeta{
+                    Labels: map[string]string{
+                        "app": deploymentName,
+                    },
+                },
+                Spec: apiv1.PodSpec{
+                    NodeSelector: map[string]string{
+                        "type": nodeSelector,
+                    },
+                    InitContainers: initContainers,
+                    Containers: []apiv1.Container{
+                        container,
+                    },
+                    Volumes: volumes,
+                },
+            },
+        },
+    }
+
+    fmt.Printf("Creating deployment %q with init containers in namespace %q...\n", deploymentName, newNamespace)
+    result, err := deploymentsClient.Create(context.TODO(), deployment, metav1.CreateOptions{})
+    if err != nil {
+        return "", fmt.Errorf("failed to create deployment %s: %w", deploymentName, err)
+    }
+
+    deploymentNameResult := result.GetObjectMeta().GetName()
+    fmt.Printf("Created deployment %q with init containers.\n", deploymentNameResult)
+    return deploymentNameResult, nil
+}
+
 func (kc *KubernetesConfig) DeleteDeployment(namespace string, deploymentName string) {
 
 	deploymentsClient := kc.Clientset.AppsV1().Deployments(namespace)
@@ -175,6 +237,21 @@ func (kc *KubernetesConfig) ModelDeploymentExists(namespace string, deploymentNa
 			return false
 		}
 		log.Fatalf("Failed to get deployments: %v", err)
+	}
+
+	return true
+}
+
+func (kc *KubernetesConfig) DeploymentExists(namespace string, deploymentName string) bool {
+	deploymentsClient := kc.Clientset.AppsV1().Deployments(namespace)
+
+	_, err := deploymentsClient.Get(context.TODO(), deploymentName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false
+		}
+		log.Error(err.Error(), "Error checking deployment existence: ", deploymentName)
+		return false
 	}
 
 	return true

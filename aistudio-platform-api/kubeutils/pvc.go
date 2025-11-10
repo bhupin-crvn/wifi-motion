@@ -58,8 +58,12 @@ func (kc *KubernetesConfig) CreateVolumesAndMounts(gpuRequest int) ([]apiv1.Volu
 	return volumes, volumeMounts
 }
 
-func (kc *KubernetesConfig) CreatePersistentVolume(newNamespace string, pvcName string, diskStorage string) error {
+func (kc *KubernetesConfig) CreatePersistentVolume(newNamespace string, pvcName string, diskStorage string, storageClass ...string) error {
 	storageClassName := "nfs-csi-model"
+	if len(storageClass) > 0 && storageClass[0] != "" {
+		storageClassName = storageClass[0]
+	}
+	
 	pvcClient := kc.Clientset.CoreV1().PersistentVolumeClaims(newNamespace)
 	pvc := &apiv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{

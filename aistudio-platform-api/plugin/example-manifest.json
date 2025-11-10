@@ -1,0 +1,31 @@
+{
+  "name": "Analytics Dashboard Plugin",
+  "version": "1.2.0",
+  "engine_key": "analytics-dashboard",
+  "description": "Provides real-time analytics and reporting capabilities",
+  "docker": {
+    "frontend": {
+      "image": "myregistry/analytics-frontend:1.2.0"
+    },
+    "backend": {
+      "image": "myregistry/analytics-backend:1.2.0",
+      "migration": true
+    }
+  },
+  "database": {
+    "enabled": true,
+    "name": "analytics_db",
+    "user": "analytics_user",
+    "password": "change_me_in_production"
+  },
+  "storage": {
+    "pvc_size": "20Gi"
+  },
+  "environment": {
+    "LOG_LEVEL": "info",
+    "CACHE_ENABLED": "true",
+    "MAX_WORKERS": "4",
+    "FEATURE_EXPORT": "true",
+    "API_TIMEOUT": "30s"
+  }
+}
