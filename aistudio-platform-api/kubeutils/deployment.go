@@ -94,6 +94,14 @@ func (kc *KubernetesConfig) ConfigModelDeployment(newNamespace string, deploymen
 
 
 func (kc *KubernetesConfig) ConfigDeployment(newNamespace, deploymentName, image string, port int, nodeSelector string, envVars []apiv1.EnvVar) (string, error) {
+	return kc.ConfigDeploymentWithInitContainers(newNamespace, deploymentName, image, port, nodeSelector, envVars, nil)
+}
+
+func (kc *KubernetesConfig) ConfigDeploymentWithInitContainers(newNamespace, deploymentName, image string, port int, nodeSelector string, envVars []apiv1.EnvVar, initContainers []apiv1.Container) (string, error) {
+	return kc.ConfigDeploymentWithInitContainersAndVolumes(newNamespace, deploymentName, image, port, nodeSelector, envVars, initContainers, nil)
+}
+
+func (kc *KubernetesConfig) ConfigDeploymentWithInitContainersAndVolumes(newNamespace, deploymentName, image string, port int, nodeSelector string, envVars []apiv1.EnvVar, initContainers []apiv1.Container, volumes []apiv1.Volume) (string, error) {
     deploymentsClient := kc.Clientset.AppsV1().Deployments(newNamespace)
 
     container := apiv1.Container{
@@ -106,6 +114,23 @@ func (kc *KubernetesConfig) ConfigDeployment(newNamespace, deploymentName, image
         },
         Env:       envVars,
     }
+
+    podSpec := apiv1.PodSpec{
+        NodeSelector: map[string]string{
+            "type": nodeSelector,
+        },
+        Containers: []apiv1.Container{
+            container,
+        },
+    }
+
+	if initContainers != nil && len(initContainers) > 0 {
+		podSpec.InitContainers = initContainers
+	}
+
+	if volumes != nil && len(volumes) > 0 {
+		podSpec.Volumes = volumes
+	}
 
     deployment := &appsv1.Deployment{
         ObjectMeta: metav1.ObjectMeta{
@@ -128,14 +153,7 @@ func (kc *KubernetesConfig) ConfigDeployment(newNamespace, deploymentName, image
                         "app": deploymentName,
                     },
                 },
-                Spec: apiv1.PodSpec{
-                    NodeSelector: map[string]string{
-                        "type": nodeSelector,
-                    },
-                    Containers: []apiv1.Container{
-                        container,
-                    },
-                },
+                Spec: podSpec,
             },
         },
     }
@@ -175,6 +193,21 @@ func (kc *KubernetesConfig) ModelDeploymentExists(namespace string, deploymentNa
 			return false
 		}
 		log.Fatalf("Failed to get deployments: %v", err)
+	}
+
+	return true
+}
+
+func (kc *KubernetesConfig) DeploymentExists(namespace string, deploymentName string) bool {
+	deploymentsClient := kc.Clientset.AppsV1().Deployments(namespace)
+
+	_, err := deploymentsClient.Get(context.TODO(), deploymentName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false
+		}
+		log.Error("Failed to get deployment: %v", err)
+		return false
 	}
 
 	return true
