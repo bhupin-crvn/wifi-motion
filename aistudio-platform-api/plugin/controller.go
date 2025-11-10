@@ -26,30 +26,21 @@ func CreatePlugin(c *fiber.Ctx) error {
 		return helper.SendResponse(c, "Invalid Request", nil, fiber.ErrBadRequest.Code)
 	}
 
-	// Create a channel to receive the result and error from the goroutine
-	resultChan := make(chan string)
-	errorChan := make(chan error)
-
-	go func() {
-		url, err := CreatePluginDeployments(req)
-		resultChan <- url
-		errorChan <- err
-	}()
-
-	url := <-resultChan
-	err := <-errorChan
-
+	result, err := installPluginCore(req)
 	if err != nil {
-		log.Info(err)
-		return helper.SendResponse(c, "Failed to create plugin deployment", nil, fiber.ErrBadRequest.Code)
+		log.Warnf("failed to install plugin: %v", err)
+		return helper.SendResponse(c, err.Error(), nil, fiber.ErrBadRequest.Code)
 	}
 
-	message := "Plugin Deployment Created Successfully"
+	message := formatInstallMessage(result)
 	log.Info(message)
 
 	data := map[string]interface{}{
-		"frontendUrl": strings.Split(url, ",")[0], // extract frontend URL
-		"backendUrl":  strings.Split(url, ",")[1], // extract backend URL
+		"frontendUrl":       result.FrontendURL,
+		"backendUrl":        result.BackendURL,
+		"namespace":         result.Namespace,
+		"artifactsLocation": result.ArtifactsLocation,
+		"manifestPath":      result.ManifestPath,
 	}
 
 	return helper.SendResponse(c, message, data, fiber.StatusOK)
@@ -69,16 +60,22 @@ func DeletePlugin(c *fiber.Ctx) error {
 		return helper.SendResponse(c, "Invalid request body", nil, fiber.StatusBadRequest)
 	}
 
-	if req.PluginName == "" || req.RoutePath == "" {
-		return helper.SendResponse(c, "pluginName and routePath are required", nil, fiber.StatusBadRequest)
+	engineKey := strings.TrimSpace(req.EngineKey)
+	if engineKey == "" {
+		engineKey = strings.TrimSpace(req.PluginName)
 	}
-	err := DeletePluginDeployments(req.PluginName, req.RoutePath)
+	routePath := strings.TrimSpace(req.RoutePath)
+
+	if engineKey == "" || routePath == "" {
+		return helper.SendResponse(c, "engineKey/pluginName and routePath are required", nil, fiber.StatusBadRequest)
+	}
+	err := DeletePluginDeployments(engineKey, routePath)
 	if err != nil {
-		log.Error("Failed to delete plugin deployments: %v", err)
+		log.Errorf("Failed to delete plugin deployments: %v", err)
 		return helper.SendResponse(c, "Failed to delete deployments", nil, fiber.StatusInternalServerError)
 	}
 
-	log.Info("Delete request for plugin=%s route=%s", req.PluginName, req.RoutePath)
+	log.Infof("Delete request for plugin=%s route=%s", engineKey, routePath)
 	return helper.SendResponse(c, "Deployments deleted successfully", nil, fiber.StatusOK)
 }
 
