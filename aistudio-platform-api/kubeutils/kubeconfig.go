@@ -1,8 +1,8 @@
 package kubeutils
 
 import (
-	"flag"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"sync"
@@ -34,16 +34,14 @@ func NewKubernetesConfig() *KubernetesConfig {
 
 		config, err = rest.InClusterConfig()
 		if err != nil {
-			var kubeconfig *string
-			if home := homedir.HomeDir(); home != "" {
-				kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"),
-					"(optional) absolute path to the kubeconfig file")
-			} else {
-				kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+			kubeconfigPath := os.Getenv("KUBECONFIG")
+			if kubeconfigPath == "" {
+				if home := homedir.HomeDir(); home != "" {
+					kubeconfigPath = filepath.Join(home, ".kube", "config")
+				}
 			}
-			flag.Parse()
 
-			config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
+			config, err = clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 			if err != nil {
 				configErr = fmt.Errorf("failed to build config from flags: %w", err)
 				return

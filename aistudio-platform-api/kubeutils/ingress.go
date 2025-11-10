@@ -3,14 +3,13 @@ package kubeutils
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-
-
-func (kc *KubernetesConfig) AppendRuleToIngress(namespace, ingressName, serviceName, path string,) error {
+func (kc *KubernetesConfig) AppendRuleToIngress(namespace, ingressName, serviceName, path string) error {
 
 	ingressClient := kc.Clientset.NetworkingV1().Ingresses(namespace)
 
@@ -51,21 +50,38 @@ func (kc *KubernetesConfig) AppendRuleToIngress(namespace, ingressName, serviceN
 func (kc *KubernetesConfig) DeleteRuleFromIngress(namespace, path, ingressName string) error {
 
 	ingressClient := kc.Clientset.NetworkingV1().Ingresses(namespace)
-	
+
 	ingress, err := ingressClient.Get(context.TODO(), ingressName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
-	for _, rule := range ingress.Spec.Rules {
-		if rule.HTTP != nil {
-			for j, path := range rule.HTTP.Paths {
-				if path.Path == fmt.Sprintf("/%s", path) {
-					rule.HTTP.Paths = append(rule.HTTP.Paths[:j], rule.HTTP.Paths[j+1:]...)
-					break
-				}
-			}
+	targetPath := path
+	if !strings.HasPrefix(targetPath, "/") {
+		targetPath = fmt.Sprintf("/%s", targetPath)
+	}
+
+	updated := false
+
+	for i := range ingress.Spec.Rules {
+		if ingress.Spec.Rules[i].HTTP == nil {
+			continue
 		}
+
+		paths := ingress.Spec.Rules[i].HTTP.Paths
+		filtered := make([]networkingv1.HTTPIngressPath, 0, len(paths))
+		for _, p := range paths {
+			if p.Path == targetPath {
+				updated = true
+				continue
+			}
+			filtered = append(filtered, p)
+		}
+		ingress.Spec.Rules[i].HTTP.Paths = filtered
+	}
+
+	if !updated {
+		return nil
 	}
 
 	_, err = ingressClient.Update(context.TODO(), ingress, metav1.UpdateOptions{})
