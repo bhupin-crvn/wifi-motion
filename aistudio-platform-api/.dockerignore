@@ -1,0 +1,13 @@
+app.go
+test.go 
+*.yaml
+src.zip
+aim.go
+artifacts.go
+work/
+*.py
+config_eks
+proxy.go
+.env
+.vscode
+.git

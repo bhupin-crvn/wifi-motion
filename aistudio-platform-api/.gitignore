@@ -1,0 +1,17 @@
+aim.go
+app.go
+artifacts.go
+test.go
+work/
+go.sum
+config_eks
+docs/
+proxy.go
+.env
+c.out
+coverage.html
+.vscode
+.DS_Store
+jenkinsfile
+builder.yaml
+app.py
