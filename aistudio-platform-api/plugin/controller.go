@@ -4,6 +4,7 @@ import (
 	"Kubernetes-api/helper"
 	"Kubernetes-api/internal/sse"
 	"bufio"
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -112,4 +113,70 @@ func GetPluginsSse(c *fiber.Ctx) error {
 	}))
 
 	return nil
+}
+
+var pluginInstaller = NewInstaller()
+
+// InstallPluginHandler provisions a plugin using the new transactional installer.
+func InstallPluginHandler(c *fiber.Ctx) error {
+	identifier := c.Params("identifier")
+	var req PluginInstallRequest
+	if err := c.BodyParser(&req); err != nil {
+		return helper.SendResponse(c, "Invalid request payload", nil, fiber.StatusBadRequest)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	response, err := pluginInstaller.Install(ctx, identifier, req)
+	if err != nil {
+		log.Errorf("plugin install failed: %v", err)
+		return helper.SendResponse(c, err.Error(), nil, fiber.StatusBadRequest)
+	}
+
+	return helper.SendResponse(c, "Plugin installed successfully", response, fiber.StatusOK)
+}
+
+// UpdatePluginHandler updates an existing plugin deployment.
+func UpdatePluginHandler(c *fiber.Ctx) error {
+	identifier := c.Params("identifier")
+	var req PluginUpdateRequest
+	if err := c.BodyParser(&req); err != nil {
+		return helper.SendResponse(c, "Invalid request payload", nil, fiber.StatusBadRequest)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	response, err := pluginInstaller.Update(ctx, identifier, req)
+	if err != nil {
+		log.Errorf("plugin update failed: %v", err)
+		return helper.SendResponse(c, err.Error(), nil, fiber.StatusBadRequest)
+	}
+
+	return helper.SendResponse(c, "Plugin updated successfully", response, fiber.StatusOK)
+}
+
+// RollbackPluginHandler rolls back a plugin deployment.
+func RollbackPluginHandler(c *fiber.Ctx) error {
+	identifier := c.Params("identifier")
+	var req PluginRollbackRequest
+	if len(c.Body()) > 0 {
+		if err := c.BodyParser(&req); err != nil {
+			return helper.SendResponse(c, "Invalid rollback payload", nil, fiber.StatusBadRequest)
+		}
+	}
+	if req.RoutePath == "" {
+		req.RoutePath = c.Query("routePath")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if err := pluginInstaller.Rollback(ctx, identifier, req); err != nil {
+		log.Errorf("plugin rollback failed: %v", err)
+		return helper.SendResponse(c, err.Error(), nil, fiber.StatusBadRequest)
+	}
+
+	return helper.SendResponse(c, "Plugin rollback completed", nil, fiber.StatusOK)
 }
